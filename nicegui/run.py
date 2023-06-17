@@ -11,9 +11,8 @@ import uvicorn
 from uvicorn.main import STARTUP_FAILURE
 from uvicorn.supervisors import ChangeReload, Multiprocess
 
-from . import globals, helpers
+from . import globals, helpers, native_mode
 from . import native as native_module
-from . import native_mode
 from .language import Language
 
 
@@ -45,9 +44,9 @@ def run(*,
         fullscreen: bool = False,
         reload: bool = True,
         uvicorn_logging_level: str = 'warning',
-        uvicorn_reload_dirs: str = '.',
-        uvicorn_reload_includes: str = '*.py',
-        uvicorn_reload_excludes: str = '.*, .py[cod], .sw.*, ~*',
+        uvicorn_reload_dirs: Union[List[str], str] = '.',
+        uvicorn_reload_includes: Union[List[str], str] = '*.py',
+        uvicorn_reload_excludes: Union[List[str], str] = '.*, .py[cod], .sw.*, ~*',
         exclude: str = '',
         tailwind: bool = True,
         storage_secret: Optional[str] = None,
@@ -78,7 +77,7 @@ def run(*,
       (possible entries: aggrid, audio, chart, colors, interactive_image, joystick, keyboard, log, markdown, mermaid, plotly, scene, video)
     :param tailwind: whether to use Tailwind (experimental, default: `True`)
     :param storage_secret: secret key for browser based storage (default: `None`, a value is required to enable ui.storage.individual and ui.storage.browser)
-    :param kwargs: additional keyword arguments are passed to `uvicorn.run`    
+    :param kwargs: additional keyword arguments are passed to `uvicorn.run`
     '''
     globals.ui_run_has_been_called = True
     globals.reload = reload
@@ -118,8 +117,8 @@ def run(*,
     if show:
         helpers.schedule_browser(host, port)
 
-    def split_args(args: str) -> List[str]:
-        return [a.strip() for a in args.split(',')]
+    def split_args(args: Union[List[str], str]) -> List[str]:
+        return args if isinstance(args, list) else [a.strip() for a in args.split(',')]
 
     # NOTE: The following lines are basically a copy of `uvicorn.run`, but keep a reference to the `server`.
 
