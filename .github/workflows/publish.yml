@@ -1,4 +1,4 @@
-name: Publish Release
+name: Build & Publish Release
 
 on:
   workflow_dispatch:
@@ -11,42 +11,61 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: Install poetry
+        run: pipx install "poetry==1.3.1"
+
       - name: set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.x"
-      - name: set up Poetry
-        uses: abatilo/actions-poetry@v2.0.0
-        with:
-          poetry-version: "1.3.1"
-      - name: get version
-        id: get_version
-        run: echo "VERSION=$(echo ${GITHUB_REF/refs\/tags\//})" >> $GITHUB_ENV
+          python-version: "3.10"
+          cache: "poetry"
+
       - name: set version
-        run: poetry version ${{ env.VERSION }}
+        run: poetry version ${{ github.ref_name }}
+
+      - name: build
+        run: poetry build
+
+      - name: upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: nicegui-${{ github.ref_name }}
+          path: dist/*
+
       - name: publish
+        if: github.repository == 'zauberzeug/nicegui' && github.ref == 'refs/tags/v*'
         env:
           POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
         run: poetry publish --build
+
       - name: Create GitHub release entry
         uses: softprops/action-gh-release@v1
         id: create_release
+        if: github.repository == 'zauberzeug/nicegui' && github.ref == 'refs/tags/v*' && success()
         with:
           draft: false
           prerelease: false
-          name: ${{ env.VERSION }}
-          tag_name: ${{ env.VERSION }}
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
+
       - name: verify
         shell: bash
-        run: for i in {1..100}; do python -m pip install 'nicegui==${{ env.VERSION }}' && break || sleep 2; done
+        if: github.repository == 'zauberzeug/nicegui' && github.ref == 'refs/tags/v*' && success()
+        run: |
+          for i in {1..100}; do
+            sleep 5
+            python -m pip -q install 'nicegui==${{ github.ref_name }}' && break
+          done
 
   docker:
     needs: pypi
     runs-on: ubuntu-latest
-
+    if: github.repository == 'zauberzeug/nicegui' && github.ref == 'refs/tags/v*' && success()
     steps:
       - uses: actions/checkout@v2
       - name: Prepare
@@ -112,6 +131,7 @@ jobs:
   update_citation:
     needs: docker
     runs-on: ubuntu-latest
+    if: github.repository == 'zauberzeug/nicegui' && github.ref == 'refs/tags/v*' && success()
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -142,6 +162,7 @@ jobs:
   verify:
     needs: docker
     runs-on: ubuntu-latest
+    if: github.repository == 'zauberzeug/nicegui' && github.ref == 'refs/tags/v*' && success()
     steps:
       - name: Pull and Test Container
         env:
