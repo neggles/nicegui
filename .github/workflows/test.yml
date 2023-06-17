@@ -46,7 +46,9 @@ jobs:
   slack:
     needs:
       - test
-    if: always() # also execute when test fails
+    # Only execute this job if the owner of the repository is zauberzeug,
+    # but regardless of the outcome of the test job
+    if: github.repository_owner == 'zauberzeug' && (success() || failure())
     runs-on: ubuntu-latest
     steps:
       - name: Determine if we need to notify
